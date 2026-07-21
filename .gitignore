@@ -20,6 +20,13 @@ runs/
 # Data (never commit datasets — see README §Data)
 data/
 datasets/
+archive/
+archive.zip
+PKLot/
+PKLotSegmented/
+*.zip
+*.tar
+*.tar.gz
 *.mp4
 *.avi
 *.mov

@@ -32,6 +32,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--workers", type=int, default=4)
     args = p.parse_args(argv)
 
+    import time
+
     import torch
     from torch import nn
     from torch.utils.data import DataLoader
@@ -65,23 +67,38 @@ def main(argv: list[str] | None = None) -> int:
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
     loss_fn = nn.CrossEntropyLoss()
 
+    n_batches = len(train_dl)
+    print(f"device={device}  classes={train_ds.classes}", flush=True)
+    print(f"train={len(train_ds)} imgs ({n_batches} batches/epoch)  val={len(val_ds)} imgs  "
+          f"batch={args.batch_size} lr={args.lr} epochs={args.epochs}", flush=True)
+
     best_acc = 0.0
     for epoch in range(1, args.epochs + 1):
         model.train()
-        for x, y in train_dl:
+        running, seen, t0 = 0.0, 0, time.time()
+        for bi, (x, y) in enumerate(train_dl, 1):
             x, y = x.to(device), y.to(device)
             opt.zero_grad()
-            loss_fn(model(x), y).backward()
+            loss = loss_fn(model(x), y)
+            loss.backward()
             opt.step()
+            running += loss.item() * y.size(0)
+            seen += y.size(0)
+            if bi % 200 == 0 or bi == n_batches:
+                ips = seen / max(time.time() - t0, 1e-6)
+                print(f"  epoch {epoch} [{bi}/{n_batches}]  loss {running / seen:.4f}  "
+                      f"{ips:.0f} img/s", flush=True)
 
+        print(f"  epoch {epoch}: evaluating on {len(val_ds)} held-out val imgs...", flush=True)
         acc, false_available = _evaluate(model, val_dl, device)
-        print(f"epoch {epoch:2d}  cross-lot val acc {acc:.4f}  false-available {false_available:.4f}")
+        print(f"epoch {epoch:2d}  cross-lot val acc {acc:.4f}  false-available {false_available:.4f}", flush=True)
         if acc >= best_acc:
             best_acc = acc
             Path(args.out).parent.mkdir(parents=True, exist_ok=True)
             torch.save(model.state_dict(), args.out)
+            print(f"           new best -> saved {args.out}", flush=True)
 
-    print(f"best cross-lot acc {best_acc:.4f} -> {args.out}")
+    print(f"best cross-lot acc {best_acc:.4f} -> {args.out}", flush=True)
     return 0
 
 

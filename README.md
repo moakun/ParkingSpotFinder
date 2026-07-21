@@ -80,6 +80,19 @@ python -m parking.train --data data/pklot --epochs 8 --out weights/mobilenet.pt
 (robustness slices, §6), `--limit-per-class` (smoke subsets), and `--dry-run`.
 It writes a `split_manifest.json` recording exactly which lots went where.
 
+**Alternative source — Roboflow PKLot (COCO detection export).** If you have the
+Roboflow `train/valid/test` + `_annotations.coco.json` export instead, crop its
+labeled space boxes into the same ImageFolder layout:
+
+```bash
+python -m parking.data.coco_to_rois --src archive --out data/pklot_roi
+python -m parking.train --data data/pklot_roi --epochs 8 --out weights/mobilenet.pt
+```
+
+Caveat: that export carries **no lot identity**, so its split mixes lots and is
+*not* a cross-lot split (plan §3) — fine for getting a classifier training fast,
+but use `prepare_pklot` on the canonical PKLotSegmented for honest cross-lot eval.
+
 ---
 
 ## Project layout
