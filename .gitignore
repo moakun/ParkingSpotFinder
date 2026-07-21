@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# PyTorch / model artifacts
+*.pt
+*.pth
+*.onnx
+weights/
+checkpoints/
+runs/
+
+# Data (never commit datasets — see README §Data)
+data/
+datasets/
+*.mp4
+*.avi
+*.mov
+# keep small sample assets explicitly if needed:
+!assets/**
+
+# Outputs
+outputs/
+*.log
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

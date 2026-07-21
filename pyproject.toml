@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "parking-spot-finder"
+version = "0.1.0"
+description = "Detect occupied vs. available parking spaces from images and video."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24,<2.0",
+    "opencv-python>=4.8",
+    "torch>=2.1",
+    "torchvision>=0.16",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+# Approach B (detection fallback) backends — install only if you build that path.
+detect = ["ultralytics>=8.1", "onnxruntime>=1.17"]
+
+[project.scripts]
+psf-run = "parking.cli:main"
+psf-annotate = "parking.tools.annotate:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,18 @@
+# Core CV + numerics
+numpy>=1.24,<2.0
+opencv-python>=4.8
+
+# Classifier (Approach A main pipeline) — CNN stage
+torch>=2.1
+torchvision>=0.16
+
+# Config / CLI / typing helpers
+pyyaml>=6.0
+
+# Dev / test
+pytest>=7.4
+
+# --- Optional (Approach B, detection fallback) ---
+# Uncomment whichever detector backend you actually wire in.
+# ultralytics>=8.1        # YOLOv8/11 reference detector
+# onnxruntime>=1.17       # if running an exported detector (e.g. MEISCF) via ONNX
