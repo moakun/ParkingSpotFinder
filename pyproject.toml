@@ -24,6 +24,7 @@ detect = ["ultralytics>=8.1", "onnxruntime>=1.17"]
 [project.scripts]
 psf-run = "parking.cli:main"
 psf-annotate = "parking.tools.annotate:main"
+psf-prep-pklot = "parking.data.prepare_pklot:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

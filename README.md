@@ -64,11 +64,21 @@ Structured output (`--json-out`) is the contract for any UI (plan §9) — the C
  "spots": {"A1": {"state": "occupied", "confidence": 0.99}, "A2": {"state": "empty", "confidence": 0.92}}}
 ```
 
-**3. Train the CNN** (milestone M2). Split **by lot**, not by crop (plan §3) — val must be a *different lot* than train:
+**3. Prep PKLot, then train the CNN** (milestone M2). First reshape PKLot's
+`<lot>/<weather>/<date>/{Empty,Occupied}` tree into an ImageFolder split — a
+whole lot is **held out for validation** (plan §3), so train/val never share a
+lot:
 
 ```bash
+# hold out PUC for val, train on UFPR04+UFPR05; hardlink avoids duplicating ~1GB
+python -m parking.data.prepare_pklot --src data/PKLot --out data/pklot --link hardlink
+
 python -m parking.train --data data/pklot --epochs 8 --out weights/mobilenet.pt
 ```
+
+`prepare_pklot` supports `--train-lots/--val-lots` (explicit split), `--weather`
+(robustness slices, §6), `--limit-per-class` (smoke subsets), and `--dry-run`.
+It writes a `split_manifest.json` recording exactly which lots went where.
 
 ---
 
@@ -84,6 +94,7 @@ src/parking/
                         yolo.py (reference), meiscf.py (your model — stub)
   temporal/             per-spot hysteresis smoothing (anti-flicker)
   output/               green/red overlay + count banner
+  data/                 PKLot -> ImageFolder split-by-lot prep
   pipeline.py           orchestration (Approach A)
   train.py              CNN training + cross-lot eval
   cli.py                psf-run
@@ -108,7 +119,7 @@ Every classifier implements `Classifier.classify_batch(rois) -> [Prediction]`; e
 |---|---|---|
 | M0 | data pipeline + spot-annotation tool | ✅ `psf-annotate`, source abstraction |
 | M1 | classical baseline on PKLot | ✅ `EdgeDensityClassifier` (the floor) |
-| M2 | CNN classifier + **cross-lot** eval | ◻ arch + `train.py` ready; needs data + weights |
+| M2 | CNN classifier + **cross-lot** eval | ◻ prep (`prepare_pklot`) + arch + `train.py` ready; needs data + weights |
 | M3 | video pipeline + temporal smoothing | ✅ pipeline + hysteresis; needs real clips |
 | M4 | capture target lot, fine-tune, ship overlay + counts | ◻ |
 | M5 | (optional) phone/web UI consuming the JSON | ◻ separate from CV core |
