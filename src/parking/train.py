@@ -29,7 +29,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--batch-size", type=int, default=128)
     p.add_argument("--lr", type=float, default=3e-4)
     p.add_argument("--input", nargs=2, type=int, default=(96, 96), metavar=("W", "H"))
-    p.add_argument("--workers", type=int, default=4)
+    p.add_argument("--workers", type=int, default=8)
+    p.add_argument("--val-subset", type=int, default=None,
+                   help="eval a fixed random subset of N val imgs each epoch (fast); "
+                        "the full held-out lot is evaluated once at the end")
     args = p.parse_args(argv)
 
     import time
@@ -43,6 +46,7 @@ def main(argv: list[str] | None = None) -> int:
     from parking.classifiers.cnn import build_backbone
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    torch.backends.cudnn.benchmark = True  # fixed input size -> let cuDNN pick fast kernels
     w, h = args.input
     norm = transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
     train_tf = transforms.Compose([
@@ -60,8 +64,23 @@ def main(argv: list[str] | None = None) -> int:
     assert train_ds.classes == ["empty", "occupied"], (
         f"class dirs must be exactly ['empty','occupied']; got {train_ds.classes}"
     )
-    train_dl = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, pin_memory=True)
-    val_dl = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
+    # Data loading is the bottleneck here (hundreds of thousands of tiny JPEGs).
+    # persistent_workers avoids re-spawning workers every epoch (a big cost on
+    # Windows); prefetch keeps the GPU fed.
+    loader_kwargs = dict(batch_size=args.batch_size, num_workers=args.workers, pin_memory=True)
+    if args.workers > 0:
+        loader_kwargs.update(persistent_workers=True, prefetch_factor=4)
+    train_dl = DataLoader(train_ds, shuffle=True, **loader_kwargs)
+
+    # Per-epoch eval on a fixed subset (fast, for tracking + checkpoint selection);
+    # the full held-out lot is evaluated once at the end for the definitive number.
+    if args.val_subset and args.val_subset < len(val_ds):
+        from torch.utils.data import Subset
+        idx = torch.randperm(len(val_ds), generator=torch.Generator().manual_seed(0))[: args.val_subset].tolist()
+        eval_ds = Subset(val_ds, idx)
+    else:
+        eval_ds = val_ds
+    val_dl = DataLoader(eval_ds, shuffle=False, **loader_kwargs)
 
     model = build_backbone("mobilenetv3_small", num_classes=2).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
@@ -89,16 +108,25 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  epoch {epoch} [{bi}/{n_batches}]  loss {running / seen:.4f}  "
                       f"{ips:.0f} img/s", flush=True)
 
-        print(f"  epoch {epoch}: evaluating on {len(val_ds)} held-out val imgs...", flush=True)
+        print(f"  epoch {epoch}: evaluating on {len(eval_ds)} val imgs...", flush=True)
         acc, false_available = _evaluate(model, val_dl, device)
-        print(f"epoch {epoch:2d}  cross-lot val acc {acc:.4f}  false-available {false_available:.4f}", flush=True)
+        tag = f"(subset {len(eval_ds)})" if eval_ds is not val_ds else "(full)"
+        print(f"epoch {epoch:2d}  cross-lot val acc {acc:.4f}  false-available {false_available:.4f}  {tag}", flush=True)
         if acc >= best_acc:
             best_acc = acc
             Path(args.out).parent.mkdir(parents=True, exist_ok=True)
             torch.save(model.state_dict(), args.out)
             print(f"           new best -> saved {args.out}", flush=True)
 
-    print(f"best cross-lot acc {best_acc:.4f} -> {args.out}", flush=True)
+    if eval_ds is not val_ds:  # definitive number: best checkpoint on the ENTIRE held-out lot
+        print(f"final: loading best checkpoint, evaluating on all {len(val_ds)} held-out val imgs...", flush=True)
+        model.load_state_dict(torch.load(args.out, map_location=device))
+        full_dl = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False,
+                             num_workers=args.workers, pin_memory=True)
+        acc_full, fa_full = _evaluate(model, full_dl, device)
+        print(f"FULL cross-lot val acc {acc_full:.4f}  false-available {fa_full:.4f}", flush=True)
+
+    print(f"best per-epoch acc {best_acc:.4f} -> {args.out}", flush=True)
     return 0
 
 
