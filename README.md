@@ -93,6 +93,18 @@ Caveat: that export carries **no lot identity**, so its split mixes lots and is
 *not* a cross-lot split (plan §3) — fine for getting a classifier training fast,
 but use `prepare_pklot` on the canonical PKLotSegmented for honest cross-lot eval.
 
+**4. Evaluate a checkpoint** (milestone M2). Evaluation is a separate,
+single-loader process (`parking.eval`) — kept apart from training on purpose, so
+the full-lot eval never contends with the training loaders. It reports cross-lot
+accuracy, the confusion matrix, precision/recall, and the two error rates that
+matter operationally — plus a **per-weather breakdown** (§6) when the crop
+filenames encode it (as `prepare_pklot` writes them):
+
+```bash
+python -m parking.eval --data data/pklot_segmented --weights weights/mobilenet.pt
+# hit a DataLoader worker error? add --workers 0
+```
+
 ---
 
 ## Project layout

@@ -118,15 +118,13 @@ def main(argv: list[str] | None = None) -> int:
             torch.save(model.state_dict(), args.out)
             print(f"           new best -> saved {args.out}", flush=True)
 
-    if eval_ds is not val_ds:  # definitive number: best checkpoint on the ENTIRE held-out lot
-        print(f"final: loading best checkpoint, evaluating on all {len(val_ds)} held-out val imgs...", flush=True)
-        model.load_state_dict(torch.load(args.out, map_location=device))
-        full_dl = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False,
-                             num_workers=args.workers, pin_memory=True)
-        acc_full, fa_full = _evaluate(model, full_dl, device)
-        print(f"FULL cross-lot val acc {acc_full:.4f}  false-available {fa_full:.4f}", flush=True)
-
     print(f"best per-epoch acc {best_acc:.4f} -> {args.out}", flush=True)
+    if eval_ds is not val_ds:
+        # Full-lot evaluation lives in parking.eval — a clean, single-loader
+        # process. Doing it here (spinning up another loader while the training
+        # loaders tear down) is fragile on Windows; keep the two separate.
+        print("for the definitive full cross-lot number, run:", flush=True)
+        print(f"  python -m parking.eval --data {args.data} --weights {args.out}", flush=True)
     return 0
 
 
