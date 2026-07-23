@@ -105,6 +105,20 @@ python -m parking.eval --data data/pklot_segmented --weights weights/mobilenet.p
 # hit a DataLoader worker error? add --workers 0
 ```
 
+**5. See it on real frames.** Native PKLot frames ship an XML per frame with each
+space's polygon + occupancy, so you can generate geometry and run the overlay
+without hand-annotating:
+
+```bash
+python -m parking.data.pklot_xml_to_geometry --xml FRAME.xml --frame FRAME.jpg --out configs/pucpr.json
+psf-run FRAME.jpg --config configs/pucpr.json --classifier cnn --weights weights/mobilenet.pt --show
+# a folder of frames -> annotated video with temporal smoothing:
+psf-run "clip.mp4" --config configs/pucpr.json --classifier cnn --weights weights/mobilenet.pt --k 5 --save out.mp4
+```
+
+On the held-out PUCPR lot this hits ~99% per-frame with the overlay hugging the
+angled bays (green = empty, red = occupied) and a live available count.
+
 ---
 
 ## Project layout

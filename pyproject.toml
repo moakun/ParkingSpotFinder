@@ -27,6 +27,7 @@ psf-annotate = "parking.tools.annotate:main"
 psf-prep-pklot = "parking.data.prepare_pklot:main"
 psf-coco-to-rois = "parking.data.coco_to_rois:main"
 psf-eval = "parking.eval:main"
+psf-pklot-geom = "parking.data.pklot_xml_to_geometry:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
